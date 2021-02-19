@@ -15,10 +15,9 @@
 #include <esp_system.h>
 #include <esp_task_wdt.h>
 
-const int ref2048 = 34;
-const int thermoDO = 19;
-const int thermoCS = 23;
-const int thermoCLK = 5;
+const int ref2048_measure = 32;
+const int ref2048_vcc = 33;
+const int ref2048_gnd = 27;
 
 #define WDT_TIMEOUT 10   //Seconds
 #define SLEEP_INTERVAL 5 //minutes
@@ -58,22 +57,22 @@ void setup() {
     float fref;
     float voltsPerCount;
     float batteryVoltage;
+    const float fudge=0.959;
 
     Serial.begin(115200);
     delay(250);
     esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);               //add current thread to WDT watch
-    // pinMode(ref2048,INPUT);
-    // pinMode(led, OUTPUT);
-    // digitalWrite(led, HIGH);
-    // ref = analogRead(ref2048);
-    // fref = (float) ref;
-    // voltsPerCount = 2.048/fref;
-    // batteryVoltage = (voltsPerCount*4096.0)*(3.329/3.58);//with emperical cal
-    // ftemperature = thermocouple.readFahrenheit();
-
+    pinMode(ref2048_measure, INPUT);
+    pinMode(ref2048_vcc, OUTPUT);
+    pinMode(ref2048_gnd, OUTPUT);
+    digitalWrite(ref2048_gnd,0);
+    digitalWrite(ref2048_vcc,1);
     setup_mqtt();
-
+    ref=analogRead(ref2048_measure);
+    fref = (float)ref;
+    voltsPerCount = 2.048/fref;
+    batteryVoltage = (voltsPerCount*4096.0)*fudge;
     Wire.begin(21, 22);
     if (!mcp.begin(I2C_ADDRESS)) {
         Serial.println("Sensor not found. Check wiring!");
@@ -93,7 +92,7 @@ void setup() {
     Serial.print("Cold Junction: ");
     Serial.println(mcp.readAmbient());
 
-    sprintf(json, "{\"tc\":%2.2f,\"th\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), 3.33);
+    sprintf(json, "{\"tc\":%2.2f,\"th\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), batteryVoltage);
     publish("chimney0/json", json, 5000);
     gotosleep(60);
 }
