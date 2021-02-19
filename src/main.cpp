@@ -1,9 +1,12 @@
 #ifndef UNIT_TEST
+#include "Adafruit_MCP9600.h"
 #include "OTA.h"
 #include "battery.h"
 #include "mqtt.h"
 #include "propane.h"
 #include "sleep.h"
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_I2CRegister.h>
 #include <Arduino.h>
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
@@ -11,15 +14,11 @@
 #include <Wire.h>
 #include <esp_system.h>
 #include <esp_task_wdt.h>
-#include <max6675.h>
 
-const int led = 13;
 const int ref2048 = 34;
 const int thermoDO = 19;
 const int thermoCS = 23;
 const int thermoCLK = 5;
-
-MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 #define WDT_TIMEOUT 10   //Seconds
 #define SLEEP_INTERVAL 5 //minutes
@@ -50,57 +49,55 @@ int print_wakeup_reason() {
     return wakeup_reason;
 }
 
+#define I2C_ADDRESS (0x67)
+
+Adafruit_MCP9600 mcp;
 void setup() {
-    float ftemperature;
-    char stemperature[20];
-    char sbatteryVoltage[20];
+    char json[40];
     int ref;
     float fref;
     float voltsPerCount;
     float batteryVoltage;
 
     Serial.begin(115200);
-    Serial.println("MAX6675 test");
+    delay(250);
     esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);               //add current thread to WDT watch
-    pinMode(ref2048,INPUT);
-    pinMode(led, OUTPUT);
-    digitalWrite(led, HIGH);
-    ref = analogRead(ref2048);
-    fref = (float) ref;
-    voltsPerCount = 2.048/fref;
-    batteryVoltage = (voltsPerCount*4096.0)*(3.329/3.58);//with emperical cal
-    ftemperature = thermocouple.readFahrenheit();
-
+    // pinMode(ref2048,INPUT);
+    // pinMode(led, OUTPUT);
+    // digitalWrite(led, HIGH);
+    // ref = analogRead(ref2048);
+    // fref = (float) ref;
+    // voltsPerCount = 2.048/fref;
+    // batteryVoltage = (voltsPerCount*4096.0)*(3.329/3.58);//with emperical cal
+    // ftemperature = thermocouple.readFahrenheit();
 
     setup_mqtt();
 
-    sprintf(stemperature, "%2.2f", ftemperature);
-    sprintf(sbatteryVoltage, "%2.2f", batteryVoltage);
+    Wire.begin(21, 22);
+    if (!mcp.begin(I2C_ADDRESS)) {
+        Serial.println("Sensor not found. Check wiring!");
+        ESP.restart();
+    }
 
-    publish("chimney0/data", stemperature, 0);
-    publish("chimney0/battery", sbatteryVoltage, 5000);
-    gotosleep(60 * SLEEP_INTERVAL); //minutes
+    mcp.setADCresolution(MCP9600_ADCRESOLUTION_18);
+
+    mcp.setThermocoupleType(MCP9600_TYPE_K);
+
+    mcp.setFilterCoefficient(3);
+    Serial.print("Filter coefficient value set to: ");
+    Serial.println(mcp.getFilterCoefficient());
+
+    mcp.enable(true);
+    Serial.println();
+    Serial.print("Cold Junction: ");
+    Serial.println(mcp.readAmbient());
+
+    sprintf(json, "{\"tc\":%2.2f,\"th\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), 3.33);
+    publish("chimney0/json", json, 5000);
+    gotosleep(60);
 }
 
 void loop() {
-    float ftemperature = thermocouple.readFahrenheit();
-    int ref;
-    float fref;
-    float voltsPerCount;
-    float batteryVoltage;
-
-    pinMode(led, OUTPUT);
-    digitalWrite(led, HIGH);
-    ref = analogRead(ref2048);
-    fref = (float) ref;
-    voltsPerCount = 2.048/fref;
-    batteryVoltage = voltsPerCount*4096.0;
-    Serial.printf("%f,%f,%f,%f\r\n",ftemperature,fref,voltsPerCount,batteryVoltage);
-    delay(1000);
-    digitalWrite(led, LOW);
-    delay(1000);
-    esp_task_wdt_reset();
 }
-
 #endif
