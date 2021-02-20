@@ -78,21 +78,12 @@ void setup() {
         Serial.println("Sensor not found. Check wiring!");
         ESP.restart();
     }
-
     mcp.setADCresolution(MCP9600_ADCRESOLUTION_18);
-
     mcp.setThermocoupleType(MCP9600_TYPE_K);
-
     mcp.setFilterCoefficient(3);
-    Serial.print("Filter coefficient value set to: ");
-    Serial.println(mcp.getFilterCoefficient());
-
     mcp.enable(true);
-    Serial.println();
-    Serial.print("Cold Junction: ");
-    Serial.println(mcp.readAmbient());
-
-    sprintf(json, "{\"tc\":%2.2f,\"th\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), batteryVoltage);
+ 
+    sprintf(json, "{\"th\":%2.2f,\"tc\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), batteryVoltage);
     publish("chimney0/json", json, 5000);
     gotosleep(60);
 }
