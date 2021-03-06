@@ -50,6 +50,8 @@ int print_wakeup_reason() {
 
 #define I2C_ADDRESS (0x67)
 
+#define WDT_TIMEOUT 9
+  
 Adafruit_MCP9600 mcp;
 void setup() {
     char json[40];
@@ -58,6 +60,8 @@ void setup() {
     float voltsPerCount;
     float batteryVoltage;
     const float fudge=0.959;
+    esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL); //add current thread to WDT watch
 
     Serial.begin(115200);
     delay(250);
