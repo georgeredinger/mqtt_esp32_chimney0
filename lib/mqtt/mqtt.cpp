@@ -7,9 +7,11 @@ const char *ID = "propane";                  // Name of our device, must be uniq
 const char *TOPIC_DATA = "propane/data";     // Topic to subcribe to
 const char *TOPIC_RESETS = "propane/resets"; // Topic to subcribe to
 const char *TOPIC_ALIVE = "propane/alive";   // Topic to subcribe to
-const char *ssid = "balanced";               // name of your WiFi network
+const char *ssid = "unbalanced";               // name of your WiFi network
 const char *password = "leapyear";           // password of the WiFi network
-IPAddress broker(192, 168, 1, 113);          // IP address of your MQTT broker eg. 192.168.1.50
+const char *mqttUser = "mosc";
+const char *mqttPassword = "ito";
+IPAddress broker(192, 168, 2, 11);          // IP address of your MQTT broker eg. 192.168.1.50
 WiFiClient wclient;
 
 PubSubClient client(wclient); // Setup MQTT client
@@ -33,7 +35,7 @@ void reconnect() {
     // Loop until we're reconnected
     while (!client.connected()) {
         // Attempt to connect
-        if (client.connect(ID)) {
+        if (client.connect(ID,mqttUser,mqttPassword)) {
             Serial.printf("mqtt reconnect OK %d\r\n", i);
             ;
         } else {

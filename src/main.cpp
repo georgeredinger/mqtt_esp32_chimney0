@@ -21,6 +21,8 @@ const int ref2048_gnd = 27;
 
 #define WDT_TIMEOUT 10   //Seconds
 #define SLEEP_INTERVAL 5 //minutes
+RTC_DATA_ATTR float lastTH = 0.0;
+RTC_DATA_ATTR int testCycles = 0;
 
 int print_wakeup_reason() {
     esp_sleep_wakeup_cause_t wakeup_reason;
@@ -53,13 +55,27 @@ int print_wakeup_reason() {
 #define WDT_TIMEOUT 9
   
 Adafruit_MCP9600 mcp;
-void setup() {
-    char json[40];
+
+float batteryVoltage(){
     int ref;
     float fref;
     float voltsPerCount;
-    float batteryVoltage;
     const float fudge=0.959;
+    pinMode(ref2048_measure, INPUT);
+    pinMode(ref2048_vcc, OUTPUT);
+    pinMode(ref2048_gnd, OUTPUT);
+    digitalWrite(ref2048_gnd,0);
+    digitalWrite(ref2048_vcc,1);
+    ref=analogRead(ref2048_measure);
+    fref = (float)ref;
+    voltsPerCount = 2.048/fref;
+    return((voltsPerCount*4096.0)*fudge);
+}
+
+void setup() {
+    char json[40];
+    
+    float tc,th,b;
     esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL); //add current thread to WDT watch
 
@@ -67,16 +83,7 @@ void setup() {
     delay(250);
     esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);               //add current thread to WDT watch
-    pinMode(ref2048_measure, INPUT);
-    pinMode(ref2048_vcc, OUTPUT);
-    pinMode(ref2048_gnd, OUTPUT);
-    digitalWrite(ref2048_gnd,0);
-    digitalWrite(ref2048_vcc,1);
-    setup_mqtt();
-    ref=analogRead(ref2048_measure);
-    fref = (float)ref;
-    voltsPerCount = 2.048/fref;
-    batteryVoltage = (voltsPerCount*4096.0)*fudge;
+  
     Wire.begin(21, 22);
     if (!mcp.begin(I2C_ADDRESS)) {
         Serial.println("Sensor not found. Check wiring!");
@@ -86,9 +93,18 @@ void setup() {
     mcp.setThermocoupleType(MCP9600_TYPE_K);
     mcp.setFilterCoefficient(3);
     mcp.enable(true);
- 
-    sprintf(json, "{\"th\":%2.2f,\"tc\":%2.2f,\"b\":%2.2f}", mcp.readThermocouple(), mcp.readAmbient(), batteryVoltage);
-    publish("chimney0/json", json, 5000);
+    
+    th = mcp.readThermocouple();
+    tc =  mcp.readAmbient();
+    b = batteryVoltage();
+
+    if((testCycles++ >=60) || abs(th - lastTH) > 5){ //publish one per hour or when big TH changes
+        testCycles =0;
+        lastTH=th;
+        setup_mqtt();
+        sprintf(json, "{\"th\":%2.2f,\"tc\":%2.2f,\"b\":%2.2f}", th, tc, b);
+        publish("chimney0/json", json, 5000);
+    }
     gotosleep(60);
 }
 
