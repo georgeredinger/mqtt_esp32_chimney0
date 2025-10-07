@@ -3,15 +3,15 @@
 #include "sleep.h"
 #include <PubSubClient.h>
 #include <WiFi.h>
-const char *ID = "propane";                  // Name of our device, must be unique
-const char *TOPIC_DATA = "propane/data";     // Topic to subcribe to
-const char *TOPIC_RESETS = "propane/resets"; // Topic to subcribe to
-const char *TOPIC_ALIVE = "propane/alive";   // Topic to subcribe to
+const char *ID = "chimney0";                  // Name of our device, must be unique
+// const char *TOPIC_DATA = "propane/data";     // Topic to subcribe to
+// const char *TOPIC_RESETS = "propane/resets"; // Topic to subcribe to
+// const char *TOPIC_ALIVE = "propane/alive";   // Topic to subcribe to
 const char *ssid = "unbalanced";               // name of your WiFi network
 const char *password = "leapyear";           // password of the WiFi network
-const char *mqttUser = "mosc";
-const char *mqttPassword = "ito";
-IPAddress broker(192, 168, 2, 11);          // IP address of your MQTT broker eg. 192.168.1.50
+const char *mqttUser = "george";
+const char *mqttPassword = "homie";
+IPAddress broker(192, 168, 2, 19);          // IP address of your MQTT broker eg. 192.168.1.50
 WiFiClient wclient;
 
 PubSubClient client(wclient); // Setup MQTT client
